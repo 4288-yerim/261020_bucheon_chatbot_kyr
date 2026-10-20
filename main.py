@@ -36,28 +36,35 @@ def show_help():
     st.markdown(
         f"""
 **1. 목표**
+
 한 줄 문제 속에 숨겨진 사건의 진상을 추리해서 맞히는 게임이에요.
 
 **2. 질문하기**
+
 아래 입력창에 예/아니오로 답할 수 있는 질문을 하세요. 출제자는 아래 네 가지로만 답해요.
+
 - **예 / 아니오** : 질문 내용이 진상과 맞는지 틀린지
 - **상관없음** : 진상과 관계가 없거나 정해져 있지 않은 내용
-- **애매함** : 예/아니오로 단정하기 어려운 질문
+- **애매함** : 대답하기 애매한 질문
 
 "왜?", "누구야?" 같은 열린 질문에는 "예/아니오만 가능합니다"라고 안내해요.
 
 **3. 질문 횟수와 힌트**
+
 질문은 최대 {MAX_QUESTIONS}번까지 할 수 있어요. 질문을 모두 써도 정답은 제출할 수 있어요.
 질문이 {hint_turns}에 도달하면 힌트가 차례로 나타나요.
 
 **4. 정답 제출**
+
 왼쪽 사이드바에 추리한 내용을 적어 제출하세요. 정답은 {MAX_ATTEMPTS}번까지 제출할 수 있어요.
 (모바일에서는 화면 왼쪽 위의 화살표를 눌러 사이드바를 열 수 있어요.)
 
 **5. 끝**
+
 정답을 맞히거나 정답 제출 기회를 모두 쓰면 사건의 진상이 공개되고 게임이 끝나요.
 
 **⚠️ 주의 사항**
+
 - 질문 길이 제한은 {MAX_QUESTION_LEN}자입니다.
 - 한 번에 하나의 질문만 해주세요.
     - 복수질문 방지는 시간이 부족해서 못했어요. 양해 부탁드립니다.
@@ -66,7 +73,22 @@ def show_help():
 
 
 # 2. 화면 구성
-st.title("🔎 매일 삼각김밥을 사는 남자")
+st.header("🔎 매일 삼각김밥을 사는 남자")  # st.title보다 작은 제목
+
+# 사이드바 내용을 세로 가운데로 옮긴다
+st.markdown(
+    """
+<style>
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 80vh;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 if not GROQ_API_KEY or not CASE_STORY:
     st.error("GROQ_API_KEY 또는 CASE_STORY가 설정되지 않았어요. README를 확인해 주세요.")
