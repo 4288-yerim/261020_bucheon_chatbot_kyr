@@ -52,7 +52,7 @@ def show_help():
 **3. 질문 횟수와 힌트**
 
 질문은 최대 {MAX_QUESTIONS}번까지 할 수 있어요. 질문을 모두 써도 정답은 제출할 수 있어요.
-질문이 {hint_turns}에 도달하면 힌트가 차례로 나타나요.
+질문이 {hint_turns}에 도달하면 왼쪽 사이드바의 힌트 버튼이 차례로 열려요. 버튼을 누르면 팝업으로 힌트를 볼 수 있어요.
 
 **4. 정답 제출**
 
@@ -67,9 +67,24 @@ def show_help():
 
 - 질문 길이 제한은 {MAX_QUESTION_LEN}자입니다.
 - 한 번에 하나의 질문만 해주세요.
-    - 복수질문 방지는 시간이 부족해서 못했어요. 양해 부탁드립니다.
+    - 한 번에 여러 질문을 하면 AI가 애매하다고 판단해요.
 """
     )
+
+
+@st.dialog("💡 힌트")
+def show_hint(number: int, text: str):
+    st.markdown(f"**힌트 {number}**")
+    st.write(text)
+
+
+@st.dialog("🔍 사건의 진상")
+def show_truth():
+    if st.session_state.solved:
+        st.success("🎉 정답입니다! 사건의 진상은 이렇습니다.")
+    else:
+        st.error("정답 제출 기회를 모두 사용했어요. 사건의 진상은 이렇습니다.")
+    st.write(CASE_STORY)
 
 
 # 2. 화면 구성
@@ -97,23 +112,15 @@ if not GROQ_API_KEY or not CASE_STORY:
 if "messages" not in st.session_state:
     reset_game()
 
-if st.button("🎮 게임 방법"):
-    show_help()
-elif not st.session_state.get("help_seen"):
-    st.session_state.help_seen = True  # 처음 접속했을 때 한 번만 자동으로 띄운다
-    show_help()
-
 st.info(PROBLEM)
 st.caption("예/아니오로 답할 수 있는 질문을 자유롭게 하세요. 출제자는 예 / 아니오 / 상관없음 / 애매함으로만 답해요.")
 
 q_count = len(st.session_state.messages) // 2
 questions_left = MAX_QUESTIONS - q_count
-for i, (hint, after) in enumerate(HINT_TEXTS, start=1):
-    if hint and q_count >= after:
-        st.info(f"힌트 {i} : {hint}", icon="💡")
 
-# 3. 사이드바: 정답 제출
+# 3. 사이드바: 게임 방법 버튼, 정답 제출, 힌트 버튼
 with st.sidebar:
+    help_clicked = st.button("🎮 게임 방법", use_container_width=True)
     st.header("정답 제출")
     left = MAX_ATTEMPTS - st.session_state.attempts
     st.write(f"질문한 횟수 : {q_count} / {MAX_QUESTIONS}번")
@@ -127,6 +134,28 @@ with st.sidebar:
         submitted = st.form_submit_button("정답 제출", disabled=st.session_state.finished)
     if st.session_state.notice:
         st.warning(st.session_state.notice)
+    for i, (hint, after) in enumerate(HINT_TEXTS, start=1):
+        if hint and st.button(
+            f"💡 힌트 {i}",
+            key=f"hint_{i}",
+            disabled=q_count < after,
+            help=f"질문을 {after}번 하면 열려요",
+            use_container_width=True,
+        ):
+            show_hint(i, hint)
+    if st.button(
+        "🔍 정답 보기",
+        disabled=not st.session_state.finished,
+        help="정답을 맞히거나 정답 제출 기회를 모두 쓰면 열려요",
+        use_container_width=True,
+    ):
+        show_truth()
+
+if help_clicked:
+    show_help()
+elif not st.session_state.get("help_seen"):
+    st.session_state.help_seen = True  # 처음 접속했을 때 한 번만 자동으로 띄운다
+    show_help()
 
 if submitted and guess.strip():
     with st.spinner("판정 중..."):
@@ -181,10 +210,9 @@ for m in st.session_state.messages:
 if st.session_state.q_error:
     st.error(st.session_state.q_error)
 
-# 6. 종료 시 정답 공개
+# 6. 종료 안내. 사건의 진상은 사이드바의 '정답 보기' 버튼으로 볼 수 있다
 if st.session_state.finished:
     if st.session_state.solved:
-        st.success("🎉 정답입니다! 사건의 진상은 이렇습니다.")
+        st.success("🎉 정답입니다! 왼쪽 사이드바의 '정답 보기'를 눌러 사건의 진상을 확인하세요.")
     else:
-        st.error("기회를 모두 사용했어요. 사건의 진상은 이렇습니다.")
-    st.write(CASE_STORY)
+        st.error("정답 제출 기회를 모두 사용했어요. 왼쪽 사이드바의 '정답 보기'를 눌러 사건의 진상을 확인하세요.")
