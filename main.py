@@ -45,6 +45,7 @@ def reset_game():
     st.session_state.solved = False
     st.session_state.notice = ""
     st.session_state.q_error = ""
+    st.session_state.pending = None  # AI가 처리 중인 질문/답안. 처리 중에는 모든 입력을 잠근다
 
 
 @st.dialog("🎮 게임 방법")
@@ -159,16 +160,18 @@ if not GROQ_API_KEY or not CASE_STORY:
 
 if "messages" not in st.session_state:
     reset_game()
+st.session_state.setdefault("pending", None)
 
 st.info(PROBLEM)
 st.caption("예/아니오로 답할 수 있는 질문을 자유롭게 하세요. 출제자는 예 / 아니오 / 상관없음 / 애매함으로만 답해요.")
 
 q_count = len(st.session_state.messages) // 2
 questions_left = MAX_QUESTIONS - q_count
+busy = st.session_state.pending is not None  # 질문이나 정답을 AI가 처리하는 중이면 True
 
 # 3. 사이드바: 게임 방법 버튼, 정답 제출, 힌트 버튼
 with st.sidebar:
-    help_clicked = st.button("🎮 게임 방법", use_container_width=True)
+    help_clicked = st.button("🎮 게임 방법", disabled=busy, use_container_width=True)
     st.header("정답 제출")
     left = MAX_ATTEMPTS - st.session_state.attempts
     st.write(f"질문한 횟수 : {q_count} / {MAX_QUESTIONS}번")
@@ -178,23 +181,24 @@ with st.sidebar:
             "남자가 매일 편의점에 간 이유와, 그날 영수증을 보고 운 이유를 적어 주세요.",
             height=220,  # 입력창 높이를 고정한다. 글이 길어지면 안에서 스크롤된다
             max_chars=MAX_ANSWER_LEN,
-            disabled=st.session_state.finished,
+            disabled=st.session_state.finished or busy,
         )
-        submitted = st.form_submit_button("정답 제출", disabled=st.session_state.finished)
+        submitted = st.form_submit_button("정답 제출", disabled=st.session_state.finished or busy)
     if st.session_state.notice:
         st.warning(st.session_state.notice)
+    judge_slot = st.empty()  # 정답을 판정하는 동안 "판정 중..."을 보여 줄 자리
     for i, (hint, after) in enumerate(HINT_TEXTS, start=1):
         if hint and st.button(
             f"💡 힌트 {i}",
             key=f"hint_{i}",
-            disabled=q_count < after,
+            disabled=q_count < after or busy,
             help=f"질문을 {after}번 하면 열려요",
             use_container_width=True,
         ):
             show_hint(i, hint)
     if st.button(
         "🔍 정답 보기",
-        disabled=not st.session_state.finished,
+        disabled=not st.session_state.finished or busy,
         help="정답을 맞히거나 정답 제출 기회를 모두 쓰면 열려요",
         use_container_width=True,
     ):
@@ -211,8 +215,70 @@ if submitted and guess.strip():
         # 너무 짧은 답안은 AI를 부르지 않고 기회도 차감하지 않는다
         st.session_state.notice = f"답안이 너무 짧아요. {MIN_ANSWER_LEN}자 이상 적어 주세요. (기회는 차감되지 않아요)"
         st.rerun()
-    with st.spinner("판정 중..."):
-        result = judge_answer(GROQ_API_KEY, PROMPT_STORY, guess.strip(), GEMINI_API_KEY)
+    # 먼저 처리 중 상태로 화면을 다시 그려서 모든 입력을 잠근 뒤, 아래 6번에서 AI를 부른다
+    st.session_state.pending = {"kind": "answer", "text": guess.strip()}
+    st.session_state.notice = ""
+    st.rerun()
+
+# 4. 질문 입력
+if questions_left <= 0 and not st.session_state.finished:
+    st.info("질문을 모두 사용했어요. 이제 정답만 제출할 수 있어요.")
+question = st.chat_input(
+    "출제자에게 질문하세요",
+    max_chars=MAX_QUESTION_LEN,
+    disabled=st.session_state.finished or questions_left <= 0 or busy,
+)
+if question and len(question) > MAX_QUESTION_LEN:
+    st.session_state.q_error = f"질문은 {MAX_QUESTION_LEN}자까지 입력할 수 있어요."
+    st.rerun()
+if question and questions_left > 0:
+    # 먼저 처리 중 상태로 화면을 다시 그려서 질문을 바로 보여 주고 모든 입력을 잠근다
+    st.session_state.pending = {"kind": "question", "text": question}
+    st.session_state.q_error = ""
+    st.rerun()
+
+# 5. 대화 기록 출력 (system 메시지는 담지 않으므로 보이지 않는다)
+question_no = 0
+for m in st.session_state.messages:
+    if m["role"] == "user":
+        question_no += 1
+        with st.chat_message("user", avatar="🙋"):
+            st.markdown(f"**Q{question_no}.** {escape_md(m['content'])}")
+    else:
+        with st.chat_message("assistant", avatar="🕵️"):
+            color = LABEL_COLORS.get(m["content"], "blue")
+            if m["content"] in LABEL_COLORS:
+                st.markdown(f"### :{color}[{m['content']}]")  # 라벨은 크고 진하게
+            else:
+                st.markdown(f":{color}[**{m['content']}**]")
+
+# 5-1. 처리 중인 질문: 질문을 바로 보여 주고 "출제자가 생각 중..."을 띄운다
+pending = st.session_state.pending
+if pending and pending["kind"] == "question":
+    with st.chat_message("user", avatar="🙋"):
+        st.markdown(f"**Q{question_no + 1}.** {escape_md(pending['text'])}")
+    with st.chat_message("assistant", avatar="🕵️"):
+        with st.spinner("출제자가 생각 중..."):
+            label = ask_question(
+                GROQ_API_KEY, PROMPT_STORY, st.session_state.messages, pending["text"], GEMINI_API_KEY
+            )
+    st.session_state.pending = None
+    if label is None:
+        # 실패한 질문은 대화 기록에 넣지 않아서 질문 횟수가 차감되지 않는다
+        st.session_state.q_error = "AI 오류 발생. 질문을 다시 입력해주세요."
+    else:
+        st.session_state.messages.append({"role": "user", "content": pending["text"]})
+        st.session_state.messages.append({"role": "assistant", "content": label})
+        st.session_state.q_error = ""
+        st.session_state.notice = ""
+    st.rerun()
+
+# 5-2. 처리 중인 정답 답안: 사이드바에 "판정 중..."을 띄운다
+if pending and pending["kind"] == "answer":
+    with judge_slot.container():
+        with st.spinner("판정 중..."):
+            result = judge_answer(GROQ_API_KEY, PROMPT_STORY, pending["text"], GEMINI_API_KEY)
+    st.session_state.pending = None
     if result is None:
         st.session_state.notice = "AI 오류 발생. 정답을 다시 제출해주세요. (기회는 차감되지 않아요)"
     else:
@@ -232,44 +298,6 @@ if submitted and guess.strip():
             )
     st.rerun()
 
-# 4. 질문 입력
-if questions_left <= 0 and not st.session_state.finished:
-    st.info("질문을 모두 사용했어요. 이제 정답만 제출할 수 있어요.")
-question = st.chat_input(
-    "출제자에게 질문하세요",
-    max_chars=MAX_QUESTION_LEN,
-    disabled=st.session_state.finished or questions_left <= 0,
-)
-if question and len(question) > MAX_QUESTION_LEN:
-    st.session_state.q_error = f"질문은 {MAX_QUESTION_LEN}자까지 입력할 수 있어요."
-    st.rerun()
-if question and questions_left > 0:
-    with st.spinner("출제자가 생각 중..."):
-        label = ask_question(GROQ_API_KEY, PROMPT_STORY, st.session_state.messages, question, GEMINI_API_KEY)
-    if label is None:
-        # 실패한 질문은 대화 기록에 넣지 않아서 질문 횟수가 차감되지 않는다
-        st.session_state.q_error = "AI 오류 발생. 질문을 다시 입력해주세요."
-    else:
-        st.session_state.messages.append({"role": "user", "content": question})
-        st.session_state.messages.append({"role": "assistant", "content": label})
-        st.session_state.q_error = ""
-        st.session_state.notice = ""
-    st.rerun()
-
-# 5. 대화 기록 출력 (system 메시지는 담지 않으므로 보이지 않는다)
-question_no = 0
-for m in st.session_state.messages:
-    if m["role"] == "user":
-        question_no += 1
-        with st.chat_message("user", avatar="🙋"):
-            st.markdown(f"**Q{question_no}.** {escape_md(m['content'])}")
-    else:
-        with st.chat_message("assistant", avatar="🕵️"):
-            color = LABEL_COLORS.get(m["content"], "blue")
-            if m["content"] in LABEL_COLORS:
-                st.markdown(f"### :{color}[{m['content']}]")  # 라벨은 크고 진하게
-            else:
-                st.markdown(f":{color}[**{m['content']}**]")
 if st.session_state.q_error:
     st.error(st.session_state.q_error)
 
