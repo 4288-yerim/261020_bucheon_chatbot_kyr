@@ -22,7 +22,7 @@ def call_gemini(api_key: str, messages: List[dict]) -> Optional[str]:
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024},
+        "generationConfig": {"temperature": 0, "maxOutputTokens": 1024},
     }
     model = get_secret("GEMINI_MODEL") or GEMINI_MODEL
     try:
@@ -48,7 +48,7 @@ def call_llm(api_key: str, messages: List[dict], gemini_key: str = "") -> Option
             res = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                temperature=0.1,
+                temperature=0,
                 max_completion_tokens=800,
                 reasoning_effort="low",
             )
