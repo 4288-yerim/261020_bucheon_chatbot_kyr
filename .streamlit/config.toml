@@ -1,9 +1,9 @@
 [client]
-# 오른쪽 위 메뉴를 보는 사람용으로 단순하게 보여 준다
-toolbarMode = "viewer"
+# 오른쪽 위 점 세 개 메뉴를 없앤다 (Record a screencast, About, 테마 변경 등이 모두 사라진다)
+toolbarMode = "minimal"
 
 [theme]
-# 처음 접속하면 다크 모드로 보인다. 접속자는 오른쪽 위 메뉴의 Settings에서 바꿀 수 있다
+# 처음 접속하면 다크 모드로 보인다
 base = "dark"
 
 [logger]

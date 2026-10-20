@@ -1,6 +1,7 @@
 import re
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from config import (
     HINTS,
@@ -15,11 +16,7 @@ from config import (
 )
 from llm import ask_question, judge_answer
 
-st.set_page_config(
-    page_title="매일 삼각김밥을 사는 남자",
-    page_icon="🔎",
-    menu_items={"Get help": None, "Report a bug": None},  # 오른쪽 위 메뉴에서 도움말/버그 신고를 숨긴다
-)  # 첫 Streamlit 명령이어야 한다
+st.set_page_config(page_title="매일 삼각김밥을 사는 남자", page_icon="🔎")  # 첫 Streamlit 명령이어야 한다
 
 # 1. 환경 변수 불러오기 (로컬은 .env, 배포는 Streamlit Secrets)
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
@@ -139,15 +136,24 @@ section[data-testid="stSidebar"] textarea {
     padding: 0.15rem 0 !important;
     margin: 0 !important;
 }
+/* 한 줄 문제는 질문이 쌓여 스크롤해도 화면 위에 계속 보이게 고정한다 */
+div[data-testid="stVerticalBlock"] > div:has(.problem-box) {
+    position: sticky;
+    top: 2.9rem;
+    z-index: 100;
+    background-color: #0e1117;
+    padding-bottom: 0.4rem;
+}
+.problem-box {
+    padding: 0.9rem 1rem;
+    border-radius: 0.5rem;
+    background-color: rgba(28, 131, 225, 0.1);
+    color: rgb(199, 235, 255);
+}
 /* 질문과 답 사이를 조금 띄워 읽기 쉽게 한다 */
 [data-testid="stChatMessage"] {
     padding: 0.6rem 0.8rem;
     margin-bottom: 0.4rem;
-}
-/* 오른쪽 위 메뉴에서 Settings(테마)만 남긴다: 1번 Rerun, 3번 이후(Print, Record, About)를 숨긴다 */
-[data-testid="stMainMenuList"] > :nth-child(1),
-[data-testid="stMainMenuList"] > :nth-child(n+3) {
-    display: none;
 }
 </style>
 """,
@@ -162,7 +168,7 @@ if "messages" not in st.session_state:
     reset_game()
 st.session_state.setdefault("pending", None)
 
-st.info(PROBLEM)
+st.markdown(f'<div class="problem-box">{PROBLEM}</div>', unsafe_allow_html=True)  # 스크롤해도 위에 고정된다
 st.caption("예/아니오로 답할 수 있는 질문을 자유롭게 하세요. 출제자는 예 / 아니오 / 상관없음 / 애매함으로만 답해요.")
 
 q_count = len(st.session_state.messages) // 2
@@ -271,6 +277,7 @@ if pending and pending["kind"] == "question":
         st.session_state.messages.append({"role": "assistant", "content": label})
         st.session_state.q_error = ""
         st.session_state.notice = ""
+    st.session_state.focus_input = True  # AI가 답한 뒤 질문 입력창에 커서를 놓는다
     st.rerun()
 
 # 5-2. 처리 중인 정답 답안: 사이드바에 "판정 중..."을 띄운다
@@ -296,10 +303,29 @@ if pending and pending["kind"] == "answer":
                 "오답이에요. 정답에는 '남자가 매일 편의점에 간 이유'와 "
                 f"'그날 영수증을 보고 운 이유'를 모두 적어야 해요. (정답 제출 기회 {left} / {MAX_ATTEMPTS})"
             )
+    st.session_state.focus_input = True  # AI가 판정한 뒤 질문 입력창에 커서를 놓는다
     st.rerun()
 
 if st.session_state.q_error:
     st.error(st.session_state.q_error)
+
+# 5-3. AI가 답한 직후에는 질문 입력창에 커서를 놓는다 (입력창이 열려 있을 때만)
+if st.session_state.get("focus_input") and not busy:
+    st.session_state.focus_input = False
+    if not st.session_state.finished and questions_left > 0:
+        components.html(
+            """
+<script>
+let tries = 0;
+const timer = setInterval(() => {
+    const box = window.parent.document.querySelector('[data-testid="stChatInputTextArea"]');
+    if (box && !box.disabled) { box.focus(); clearInterval(timer); }
+    else if (++tries > 30) { clearInterval(timer); }
+}, 100);
+</script>
+""",
+            height=0,
+        )
 
 # 6. 종료 안내. 사연은 사이드바의 '정답 보기' 버튼으로 볼 수 있다
 if st.session_state.finished:
