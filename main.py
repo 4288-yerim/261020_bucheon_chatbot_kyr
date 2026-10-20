@@ -127,6 +127,17 @@ section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
         display: none;
     }
 }
+/* 정답 입력창 크기를 사용자가 끌어서 바꾸지 못하게 한다 */
+section[data-testid="stSidebar"] textarea {
+    resize: none;
+}
+/* 답(예/아니오 등)은 질문보다 작게 보이도록 제목 크기를 줄인다 */
+[data-testid="stChatMessage"] h3 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    padding: 0.15rem 0 !important;
+    margin: 0 !important;
+}
 /* 질문과 답 사이를 조금 띄워 읽기 쉽게 한다 */
 [data-testid="stChatMessage"] {
     padding: 0.6rem 0.8rem;
@@ -165,6 +176,7 @@ with st.sidebar:
     with st.form("answer_form", clear_on_submit=True):
         guess = st.text_area(
             "남자가 매일 편의점에 간 이유와, 그날 영수증을 보고 운 이유를 적어 주세요.",
+            height=220,  # 입력창 높이를 고정한다. 글이 길어지면 안에서 스크롤된다
             max_chars=MAX_ANSWER_LEN,
             disabled=st.session_state.finished,
         )
