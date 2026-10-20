@@ -29,6 +29,15 @@ PROMPT_STORY = get_secret("CASE_STORY_EN") or CASE_STORY  # AI에게 보내는 �
 HINT_TEXTS = [(get_secret(name), after) for name, after in HINTS]  # 힌트 문구(한글). 비어 있으면 건너뛴다
 
 
+# 답 라벨별 색. 라벨이 아닌 안내 문구("예/아니오만 가능합니다")는 파란색으로 보여 준다
+LABEL_COLORS = {"예": "green", "아니오": "red", "상관없음": "gray", "애매함": "orange"}
+
+
+def escape_md(text: str) -> str:
+    # 사용자가 입력한 글이 마크다운 서식으로 읽히지 않게 특수문자를 막는다
+    return re.sub(r"([\\`*_{}\[\]()#+\-.!|>~$:])", r"\\\1", text)
+
+
 def reset_game():
     st.session_state.messages = []
     st.session_state.attempts = 0
@@ -109,6 +118,19 @@ section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
     flex-direction: column;
     justify-content: center;
     min-height: 80vh;
+}
+/* 화면이 넓을 때는 사이드바를 접었다 펴는 버튼을 숨겨서 항상 고정해 둔다. 좁은 화면(모바일)은 기본 동작 유지 */
+@media (min-width: 768px) {
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
+        display: none;
+    }
+}
+/* 질문과 답 사이를 조금 띄워 읽기 쉽게 한다 */
+[data-testid="stChatMessage"] {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.4rem;
 }
 /* 오른쪽 위 메뉴에서 Settings(테마)만 남긴다: 1번 Rerun, 3번 이후(Print, Record, About)를 숨긴다 */
 [data-testid="stMainMenuList"] > :nth-child(1),
@@ -223,9 +245,19 @@ if question and questions_left > 0:
     st.rerun()
 
 # 5. 대화 기록 출력 (system 메시지는 담지 않으므로 보이지 않는다)
+question_no = 0
 for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.write(m["content"])
+    if m["role"] == "user":
+        question_no += 1
+        with st.chat_message("user", avatar="🙋"):
+            st.markdown(f"**Q{question_no}.** {escape_md(m['content'])}")
+    else:
+        with st.chat_message("assistant", avatar="🕵️"):
+            color = LABEL_COLORS.get(m["content"], "blue")
+            if m["content"] in LABEL_COLORS:
+                st.markdown(f"### :{color}[{m['content']}]")  # 라벨은 크고 진하게
+            else:
+                st.markdown(f":{color}[**{m['content']}**]")
 if st.session_state.q_error:
     st.error(st.session_state.q_error)
 
