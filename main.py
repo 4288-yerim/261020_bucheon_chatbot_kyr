@@ -8,7 +8,9 @@ from config import (
     MAX_ATTEMPTS,
     MAX_QUESTION_LEN,
     MAX_QUESTIONS,
+    MIN_ANSWER_LEN,
     PROBLEM,
+    USE_GEMINI,
     get_secret,
 )
 from llm import ask_question, judge_answer
@@ -21,7 +23,7 @@ st.set_page_config(
 
 # 1. 환경 변수 불러오기 (로컬은 .env, 배포는 Streamlit Secrets)
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
-GEMINI_API_KEY = get_secret("GEMINI_API_KEY")  # 선택. Groq 한도가 모두 찼을 때만 쓴다
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY") if USE_GEMINI else ""  # Gemini를 끄면 키도 읽지 않는다
 CASE_STORY = get_secret("CASE_STORY")  # 정답 전문(한글). 정답 공개 화면에만 쓴다. 공개 레포에 두지 않는다
 PROMPT_STORY = get_secret("CASE_STORY_EN") or CASE_STORY  # AI에게 보내는 정답(영어). 없으면 한글을 쓴다
 HINT_TEXTS = [(get_secret(name), after) for name, after in HINTS]  # 힌트 문구(한글). 비어 있으면 건너뛴다
@@ -52,6 +54,8 @@ def show_help():
 - **예 / 아니오** : 질문 내용이 진상과 맞는지 틀린지
 - **상관없음** : 진상과 관계가 없거나 정해져 있지 않은 내용
 - **애매함** : 대답하기 애매한 질문
+
+"만약 ~였다면?" 같은 가정 질문도 상관없음으로 처리돼요.
 
 "왜?", "누구야?" 같은 열린 질문에는 "예/아니오만 가능합니다"라고 안내해요.
 
@@ -169,6 +173,10 @@ elif not st.session_state.get("help_seen"):
     show_help()
 
 if submitted and guess.strip():
+    if len(guess.strip()) < MIN_ANSWER_LEN:
+        # 너무 짧은 답안은 AI를 부르지 않고 기회도 차감하지 않는다
+        st.session_state.notice = f"답안이 너무 짧아요. {MIN_ANSWER_LEN}자 이상 적어 주세요. (기회는 차감되지 않아요)"
+        st.rerun()
     with st.spinner("판정 중..."):
         result = judge_answer(GROQ_API_KEY, PROMPT_STORY, guess.strip(), GEMINI_API_KEY)
     if result is None:

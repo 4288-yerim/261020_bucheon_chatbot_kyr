@@ -17,9 +17,10 @@ MAX_ATTEMPTS = 3
 MAX_QUESTIONS = 30  # 질문을 다 쓰면 정답만 제출할 수 있다
 # (힌트 시크릿 이름, 몇 번째 질문 이후에 보여 줄지). 힌트 문구는 공개 레포에 두지 않는다
 HINTS = [("HINT_1", 5), ("HINT_2", 12)]
-MAX_ANSWER_LEN = 500
-MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]  # 한도가 차면 다음 모델로 교체
-GEMINI_MODEL = "gemini-3.8-flash"  # Groq가 모두 막혔을 때 쓰는 예비 모델. GEMINI_MODEL 시크릿으로 바꿀 수 있다
+MAX_ANSWER_LEN = 200
+MIN_ANSWER_LEN = 10  # 이보다 짧은 정답 답안은 AI를 부르지 않고 다시 쓰게 한다
+MODELS = ["openai/gpt-oss-20b"]  # 한도가 차면 Gemini 예비로 넘어간다
+USE_GEMINI = False  # True로 바꾸면 Groq 한도가 찼을 때 Gemini(gemini.py)로 넘어간다. 지금은 꺼 둔다
 
 
 def _secrets_file_exists() -> bool:

@@ -1,3 +1,7 @@
 [client]
 # 오른쪽 위 메뉴를 보는 사람용으로 단순하게 보여 준다
 toolbarMode = "viewer"
+
+[logger]
+# 로그 창에는 오류만 남긴다
+level = "error"
