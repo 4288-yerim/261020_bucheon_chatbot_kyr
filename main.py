@@ -40,6 +40,7 @@ def reset_game():
     st.session_state.attempts = 0
     st.session_state.finished = False
     st.session_state.solved = False
+    st.session_state.gave_up = False
     st.session_state.notice = ""
     st.session_state.q_error = ""
     st.session_state.pending = None  # AI가 처리 중인 질문/답안. 처리 중에는 모든 입력을 잠근다
@@ -78,7 +79,8 @@ def show_help():
 
 **5. 끝**
 
-정답을 맞히거나 정답 제출 기회를 모두 쓰면 사연이 공개되고 게임이 끝나요.
+정답을 맞히거나 정답 제출 기회를 모두 쓰면 사연을 볼 수 있고 게임이 끝나요.
+사이드바의 '포기하기'를 누르면 바로 끝내고 사연을 볼 수 있어요.
 
 **⚠️ 주의 사항**
 
@@ -95,10 +97,22 @@ def show_hint(number: int, text: str):
     st.write(text)
 
 
+@st.dialog("🏳️ 포기하기")
+def show_give_up():
+    st.write("포기하면 질문과 답안 입력이 불가능하고 정답보기만 가능합니다. 포기하시겠습니까?")
+    if st.button("포기하기", type="primary", use_container_width=True):
+        st.session_state.gave_up = True
+        st.session_state.finished = True
+        st.session_state.notice = ""
+        st.rerun()
+
+
 @st.dialog("🔍 사연")
 def show_truth():
     if st.session_state.solved:
         st.success("🎉 정답입니다! 사연은 이렇습니다.")
+    elif st.session_state.gave_up:
+        st.info("포기하셨어요. 사연은 이렇습니다.")
     else:
         st.error("정답 제출 기회를 모두 사용했어요. 사연은 이렇습니다.")
     st.write("\n\n".join(re.split(r"(?<=\.)\s+", CASE_STORY)))  # 문장마다 줄을 바꿔 보여 준다
@@ -205,10 +219,16 @@ with st.sidebar:
     if st.button(
         "🔍 정답 보기",
         disabled=not st.session_state.finished or busy,
-        help="정답을 맞히거나 정답 제출 기회를 모두 쓰면 열려요",
+        help="정답을 맞히거나 정답 제출 기회를 모두 쓰거나 포기하면 열려요",
         use_container_width=True,
     ):
         show_truth()
+    if st.button(
+        "🏳️ 포기하기",
+        disabled=st.session_state.finished or busy,
+        use_container_width=True,
+    ):
+        show_give_up()
 
 if help_clicked:
     show_help()
@@ -335,5 +355,7 @@ const timer = setInterval(() => {
 if st.session_state.finished:
     if st.session_state.solved:
         st.success("🎉 정답입니다! 왼쪽 사이드바의 '정답 보기'를 눌러 사연을 확인하세요.")
+    elif st.session_state.gave_up:
+        st.info("포기하셨어요. 왼쪽 사이드바의 '정답 보기'를 눌러 사연을 확인하세요.")
     else:
         st.error("정답 제출 기회를 모두 사용했어요. 왼쪽 사이드바의 '정답 보기'를 눌러 사연을 확인하세요.")

@@ -16,7 +16,7 @@ MAX_QUESTION_LEN = 100  # 질문 글자 수 제한
 MAX_ATTEMPTS = 3
 MAX_QUESTIONS = 30  # 질문을 다 쓰면 정답만 제출할 수 있다
 # (힌트 시크릿 이름, 몇 번째 질문 이후에 보여 줄지). 힌트 문구는 공개 레포에 두지 않는다
-HINTS = [("HINT_1", 5), ("HINT_2", 12)]
+HINTS = [("HINT_1", 5), ("HINT_2", 10)]
 MAX_ANSWER_LEN = 200
 MIN_ANSWER_LEN = 10  # 이보다 짧은 정답 답안은 AI를 부르지 않고 다시 쓰게 한다
 MODELS = ["openai/gpt-oss-20b"]  # 한도가 차면 Gemini 예비로 넘어간다
