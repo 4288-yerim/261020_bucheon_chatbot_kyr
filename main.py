@@ -257,6 +257,10 @@ for m in st.session_state.messages:
                 st.markdown(f"### :{color}[{m['content']}]")  # 라벨은 크고 진하게
             else:
                 st.markdown(f":{color}[**{m['content']}**]")
+            # 힌트가 열린 질문의 답 아래에 안내 문구를 붙인다
+            for i, (hint, after) in enumerate(HINT_TEXTS, start=1):
+                if hint and after == question_no:
+                    st.markdown(f":blue[**왼쪽에 💡힌트 {i}을 확인해주세요!**]")
 
 # 5-1. 처리 중인 질문: 질문을 바로 보여 주고 "출제자가 생각 중..."을 띄운다
 pending = st.session_state.pending
