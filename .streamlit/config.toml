@@ -1,0 +1,3 @@
+[client]
+# 오른쪽 위 메뉴를 보는 사람용으로 단순하게 보여 준다
+toolbarMode = "viewer"

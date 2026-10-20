@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 
 from config import (
@@ -11,7 +13,11 @@ from config import (
 )
 from llm import ask_question, judge_answer
 
-st.set_page_config(page_title="매일 삼각김밥을 사는 남자", page_icon="🔎")  # 첫 Streamlit 명령이어야 한다
+st.set_page_config(
+    page_title="매일 삼각김밥을 사는 남자",
+    page_icon="🔎",
+    menu_items={"Get help": None, "Report a bug": None},  # 오른쪽 위 메뉴에서 도움말/버그 신고를 숨긴다
+)  # 첫 Streamlit 명령이어야 한다
 
 # 1. 환경 변수 불러오기 (로컬은 .env, 배포는 Streamlit Secrets)
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
@@ -37,7 +43,7 @@ def show_help():
         f"""
 **1. 목표**
 
-한 줄 문제 속에 숨겨진 사건의 진상을 추리해서 맞히는 게임이에요.
+한 줄 문제 속에 숨겨진 사연을 추리해서 맞히는 게임이에요.
 
 **2. 질문하기**
 
@@ -61,7 +67,7 @@ def show_help():
 
 **5. 끝**
 
-정답을 맞히거나 정답 제출 기회를 모두 쓰면 사건의 진상이 공개되고 게임이 끝나요.
+정답을 맞히거나 정답 제출 기회를 모두 쓰면 사연이 공개되고 게임이 끝나요.
 
 **⚠️ 주의 사항**
 
@@ -78,13 +84,13 @@ def show_hint(number: int, text: str):
     st.write(text)
 
 
-@st.dialog("🔍 사건의 진상")
+@st.dialog("🔍 사연")
 def show_truth():
     if st.session_state.solved:
-        st.success("🎉 정답입니다! 사건의 진상은 이렇습니다.")
+        st.success("🎉 정답입니다! 사연은 이렇습니다.")
     else:
-        st.error("정답 제출 기회를 모두 사용했어요. 사건의 진상은 이렇습니다.")
-    st.write(CASE_STORY)
+        st.error("정답 제출 기회를 모두 사용했어요. 사연은 이렇습니다.")
+    st.write("\n\n".join(re.split(r"(?<=\.)\s+", CASE_STORY)))  # 문장마다 줄을 바꿔 보여 준다
 
 
 # 2. 화면 구성
@@ -99,6 +105,11 @@ section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
     flex-direction: column;
     justify-content: center;
     min-height: 80vh;
+}
+/* 오른쪽 위 메뉴에서 Settings(테마)만 남긴다: 1번 Rerun, 3번 이후(Print, Record, About)를 숨긴다 */
+[data-testid="stMainMenuList"] > :nth-child(1),
+[data-testid="stMainMenuList"] > :nth-child(n+3) {
+    display: none;
 }
 </style>
 """,
@@ -210,9 +221,9 @@ for m in st.session_state.messages:
 if st.session_state.q_error:
     st.error(st.session_state.q_error)
 
-# 6. 종료 안내. 사건의 진상은 사이드바의 '정답 보기' 버튼으로 볼 수 있다
+# 6. 종료 안내. 사연은 사이드바의 '정답 보기' 버튼으로 볼 수 있다
 if st.session_state.finished:
     if st.session_state.solved:
-        st.success("🎉 정답입니다! 왼쪽 사이드바의 '정답 보기'를 눌러 사건의 진상을 확인하세요.")
+        st.success("🎉 정답입니다! 왼쪽 사이드바의 '정답 보기'를 눌러 사연을 확인하세요.")
     else:
-        st.error("정답 제출 기회를 모두 사용했어요. 왼쪽 사이드바의 '정답 보기'를 눌러 사건의 진상을 확인하세요.")
+        st.error("정답 제출 기회를 모두 사용했어요. 왼쪽 사이드바의 '정답 보기'를 눌러 사연을 확인하세요.")
