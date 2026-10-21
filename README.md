@@ -1,6 +1,6 @@
 # 매일 삼각김밥을 사는 남자
 
-🔗 배포 링크: https://261020bucheonchatbotkyr-f9udtgkuqdurq92tx5npvd.streamlit.app
+🔗 배포 링크: 
 
 ## 🎮 게임 방법
 
